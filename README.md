@@ -14,14 +14,14 @@ Telegram Support Bot для технической поддержки польз
 Откройте файл config.py и по документации внутри файла, заполните все обязательные для запуска переменные.
 После выполнения инструкции, запустите файл sql.py
 ```bash
-cd Telegram Support Bot
+cd telegram-bot
 python3 sql.py
 ```
 Если все выполнилось без ошибок - настройка бота завершена и вы можете переходить к запуску бота.
 
 ## Запуск
 ```bash
-cd Telegram Support Bot
+cd telegram-bot
 python3 bot.py
 ```
 
