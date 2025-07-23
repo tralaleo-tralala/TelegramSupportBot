@@ -21,6 +21,7 @@ jobs:
           source: '.'
           target: ${{ secrets.SERVER_PATH }}
       - name: Build and restart container
+
         uses: appleboy/ssh-action@v1
         with:
           host: ${{ secrets.SERVER_HOST }}
