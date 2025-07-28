@@ -25,7 +25,14 @@ def get_user_lang(user_id):
 def set_user_lang(user_id, lang):
     con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
     cur = con.cursor()
-    cur.execute("INSERT INTO users (user_id, lang) VALUES (%s, %s) ON DUPLICATE KEY UPDATE lang=%s", (user_id, lang, lang))
+
+    # Check if the user already exists to avoid duplications
+    cur.execute("SELECT id FROM users WHERE user_id=%s", (user_id,))
+    if cur.fetchone():
+        cur.execute("UPDATE users SET lang=%s WHERE user_id=%s", (lang, user_id))
+    else:
+        cur.execute("INSERT INTO users (user_id, lang) VALUES (%s, %s)", (user_id, lang))
+
     con.commit()
     cur.close()
     con.close()
