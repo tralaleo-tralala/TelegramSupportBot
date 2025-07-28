@@ -128,4 +128,10 @@ TEXTS = {
 }
 
 def t(lang, key, **kwargs):
-    return TEXTS.get(lang, TEXTS['en']).get(key, '').format(**kwargs)
+    raw_text = TEXTS.get(lang, TEXTS['en']).get(key, '')
+    try:
+        # convert explicit surrogate pairs to real emoji characters
+        decoded_text = raw_text.encode('utf-16', 'surrogatepass').decode('utf-16')
+    except UnicodeEncodeError:
+        decoded_text = raw_text
+    return decoded_text.format(**kwargs)
