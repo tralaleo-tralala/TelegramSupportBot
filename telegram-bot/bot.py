@@ -21,7 +21,8 @@ def start(message):
     if not lang:
         bot.send_message(message.chat.id, t('en', 'select_language'), reply_markup=markup.markup_lang())
         return
-    bot.send_message(message.chat.id, t(lang, 'welcome'), parse_mode='html', reply_markup=markup.markup_main(lang))
+    welcome_text = sanitize_text(t(lang, 'welcome'))
+    bot.send_message(message.chat.id, welcome_text, parse_mode='html', reply_markup=markup.markup_main(lang))
 
 
 @bot.message_handler(commands=['language'])
@@ -247,7 +248,15 @@ def callback_inline(call):
         if call.data.startswith('set_lang:'):
             lang_selected = call.data.split(':')[1]
             core.set_user_lang(user_id, lang_selected)
-            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang_selected, 'welcome'), parse_mode='html', reply_markup=markup.markup_main(lang_selected))
+            welcome_text = sanitize_text(t(lang_selected, 'welcome'))
+            bot.edit_message_text(chat_id=call.message.chat.id,
+                                  message_id=call.message.message_id,
+                                  text=welcome_text,
+                                  parse_mode='html')
+            bot.send_message(call.message.chat.id,
+                             welcome_text,
+                             parse_mode='html',
+                             reply_markup=markup.markup_main(lang_selected))
             bot.answer_callback_query(call.id)
             return
         if ('my_reqs:' in call.data) or ('waiting_reqs:' in call.data) or ('answered_reqs:' in call.data) or ('confirm_reqs:' in call.data):
