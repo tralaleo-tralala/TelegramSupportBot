@@ -309,7 +309,10 @@ def callback_inline(call):
             req_id = parts[1]
             status_user = parts[2]
 
-            take_additional_message = bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'unsupported_type_message'), reply_markup=markup.markup_cancel(lang))
+            take_additional_message = bot.send_message(
+                chat_id=call.message.chat.id,
+                text=t(lang, 'add_message_prompt'),
+                reply_markup=markup.markup_cancel(lang))
 
             bot.register_next_step_handler(take_additional_message, get_additional_message, req_id, status_user)
 
