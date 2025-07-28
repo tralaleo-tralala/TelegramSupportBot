@@ -25,6 +25,9 @@ cd telegram-bot
 python3 bot.py
 ```
 
+Язык интерфейса можно поменять в любое время командой `/language` или кнопкой
+<b>Сменить язык</b> в главном меню.
+
 ## Автозапуск через Docker и GitHub Actions
 
 В репозитории присутствуют `Dockerfile` и `docker-compose.yml`, позволяющие
