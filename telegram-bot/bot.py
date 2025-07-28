@@ -4,6 +4,7 @@ import telebot
 import random
 import datetime
 import markup
+from locales import t
 import sys
 from telebot import apihelper
 
@@ -14,18 +15,24 @@ bot = telebot.TeleBot(config.TOKEN, skip_pending=True)
 
 @bot.message_handler(commands=['start'])
 def start(message):
-    bot.send_message(message.chat.id, '👋🏻 Привет! Это бот для технической поддержки пользователей.\nЕсли у тебя есть какой-либо вопрос или проблема - нажми на кнопку <b>Написать запрос</b> и наши сотрудники в скором времени тебе ответят!', parse_mode='html', reply_markup=markup.markup_main())
+    user_id = message.from_user.id
+    lang = core.get_user_lang(user_id)
+    if not lang:
+        bot.send_message(message.chat.id, t('en', 'select_language'), reply_markup=markup.markup_lang())
+        return
+    bot.send_message(message.chat.id, t(lang, 'welcome'), parse_mode='html', reply_markup=markup.markup_main(lang))
 
 
 @bot.message_handler(commands=['agent'])
 def agent(message):
     user_id = message.from_user.id
+    lang = core.get_user_lang(user_id) or 'en'
 
-    if core.check_agent_status(user_id) == True: 
-        bot.send_message(message.chat.id, '🔑 Вы авторизованы как Агент поддержки', parse_mode='html', reply_markup=markup.markup_agent())
+    if core.check_agent_status(user_id) == True:
+        bot.send_message(message.chat.id, t(lang, 'already_agent'), parse_mode='html', reply_markup=markup.markup_agent(lang))
 
     else:
-        take_password_message = bot.send_message(message.chat.id, '⚠️ Тебя нет в базе. Отправь одноразовый пароль доступа.', reply_markup=markup.markup_cancel())
+        take_password_message = bot.send_message(message.chat.id, t(lang, 'not_in_db'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(take_password_message, get_password_message)
@@ -34,60 +41,63 @@ def agent(message):
 @bot.message_handler(commands=['admin'])
 def admin(message):
     user_id = message.from_user.id
+    lang = core.get_user_lang(user_id) or 'en'
 
     if str(user_id) == config.ADMIN_ID:
-        bot.send_message(message.chat.id, '🔑 Вы авторизованы как Админ', reply_markup=markup.markup_admin())
+        bot.send_message(message.chat.id, t(lang, 'authorized_admin'), reply_markup=markup.markup_admin(lang))
     else:
-        bot.send_message(message.chat.id, '🚫 Эта команда доступна только администратору.')
+        bot.send_message(message.chat.id, t(lang, 'admin_only'))
 
 
 @bot.message_handler(content_types=['text'])
 def send_text(message):
     user_id = message.from_user.id
+    lang = core.get_user_lang(user_id) or 'en'
 
-    if message.text == '✏️ Написать запрос':
-        take_new_request = bot.send_message(message.chat.id, 'Введите свой запрос и наши сотрудники скоро с вами свяжутся.', reply_markup=markup.markup_cancel())
+    if message.text == t(lang, 'write_request_btn'):
+        take_new_request = bot.send_message(message.chat.id, t(lang, 'write_request_prompt'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(take_new_request, get_new_request)
 
-    elif message.text == '✉️ Мои запросы':
-        markup_and_value = markup.markup_reqs(user_id, 'my_reqs', '1')
+    elif message.text == t(lang, 'my_requests_btn'):
+        markup_and_value = markup.markup_reqs(user_id, 'my_reqs', '1', lang)
         markup_req = markup_and_value[0]
         value = markup_and_value[1]
 
         if value == 0:
-            bot.send_message(message.chat.id, 'У вас пока ещё нет запросов.', reply_markup=markup.markup_main())
+            bot.send_message(message.chat.id, t(lang, 'no_requests'), reply_markup=markup.markup_main(lang))
         else:
-            bot.send_message(message.chat.id, 'Ваши запросы:', reply_markup=markup_req)
+            bot.send_message(message.chat.id, t(lang, 'your_requests'), reply_markup=markup_req)
     
     else:
-        bot.send_message(message.chat.id, 'Вы возвращены в главное меню.', parse_mode='html', reply_markup=markup.markup_main())
+        bot.send_message(message.chat.id, t(lang, 'main_menu_returned'), parse_mode='html', reply_markup=markup.markup_main(lang))
 
 
 def get_password_message(message):
     password = message.text
     user_id = message.from_user.id
+    lang = core.get_user_lang(user_id) or 'en'
 
     if password == None:
-        send_message = bot.send_message(message.chat.id, '⚠️ Вы отправляете не текст. Попробуйте еще раз.', reply_markup=markup.markup_cancel())
+        send_message = bot.send_message(message.chat.id, t(lang, 'not_text_try_again'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(send_message, get_password_message)
 
-    elif password.lower() == 'отмена':
-        bot.send_message(message.chat.id, 'Отменено.', reply_markup=markup.markup_main())
+    elif password.lower() == t(lang, 'cancel_btn').lower():
+        bot.send_message(message.chat.id, t(lang, 'cancelled'), reply_markup=markup.markup_main(lang))
         return
 
     elif core.valid_password(password) == True:
         core.delete_password(password)
         core.add_agent(user_id)
 
-        bot.send_message(message.chat.id, '🔑 Вы авторизованы как Агент поддержки', parse_mode='html', reply_markup=markup.markup_main())
-        bot.send_message(message.chat.id, 'Выберите раздел технической панели:', parse_mode='html', reply_markup=markup.markup_agent())
+        bot.send_message(message.chat.id, t(lang, 'already_agent'), parse_mode='html', reply_markup=markup.markup_main(lang))
+        bot.send_message(message.chat.id, t(lang, 'choose_agent_section'), parse_mode='html', reply_markup=markup.markup_agent(lang))
 
     else:
-        send_message = bot.send_message(message.chat.id, '⚠️ Неверный пароль. Попробуй ещё раз.', reply_markup=markup.markup_cancel())
+        send_message = bot.send_message(message.chat.id, t(lang, 'wrong_password'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(send_message, get_password_message)
@@ -95,26 +105,28 @@ def get_password_message(message):
 
 def get_agent_id_message(message):
     agent_id = message.text
+    lang = core.get_user_lang(message.from_user.id) or 'en'
 
     if agent_id == None:
-        take_agent_id_message = bot.send_message(message.chat.id, '⚠️ Вы отправляете не текст. Попробуйте еще раз.', reply_markup=markup.markup_cancel())
+        take_agent_id_message = bot.send_message(message.chat.id, t(lang, 'not_text_try_again'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(take_agent_id_message, get_agent_id_message)
 
-    elif agent_id.lower() == 'отмена':
-        bot.send_message(message.chat.id, 'Отменено.', reply_markup=markup.markup_main())
+    elif agent_id.lower() == t(lang, 'cancel_btn').lower():
+        bot.send_message(message.chat.id, t(lang, 'cancelled'), reply_markup=markup.markup_main(lang))
         return
 
     else:
         core.add_agent(agent_id)
-        bot.send_message(message.chat.id, '✅ Агент успешно добавлен.', reply_markup=markup.markup_main())
-        bot.send_message(message.chat.id, 'Выберите раздел админ панели:', reply_markup=markup.markup_admin())
+        bot.send_message(message.chat.id, t(lang, 'agent_added'), reply_markup=markup.markup_main(lang))
+        bot.send_message(message.chat.id, t(lang, 'choose_admin_section'), reply_markup=markup.markup_admin(lang))
 
 
 def get_new_request(message):
     request = message.text
     user_id = message.from_user.id
+    lang = core.get_user_lang(user_id) or 'en'
     check_file = core.get_file(message)
 
     #Если пользователь отправляет файл
@@ -125,7 +137,7 @@ def get_new_request(message):
         request = check_file['text']
 
         if str(request) == 'None':
-            take_new_request = bot.send_message(message.chat.id, '⚠️ Вы не ввели ваш запрос. Попробуйте ещё раз, отправив текст вместе с файлом.', reply_markup=markup.markup_cancel())
+            take_new_request = bot.send_message(message.chat.id, t(lang, 'no_request_text'), reply_markup=markup.markup_cancel(lang))
 
             bot.clear_step_handler_by_chat_id(message.chat.id)
             bot.register_next_step_handler(take_new_request, get_new_request)
@@ -134,28 +146,29 @@ def get_new_request(message):
             req_id = core.new_req(user_id, request)
             core.add_file(req_id, file_id, file_name, type)
 
-            bot.send_message(message.chat.id, f'✅ Ваш запрос под ID {req_id} создан. Посмотреть текущие запросы можно нажав кнопку <b>Мои текущие запросы</b>', parse_mode='html', reply_markup=markup.markup_main())        
+            bot.send_message(message.chat.id, t(lang, 'request_created', req_id=req_id), parse_mode='html', reply_markup=markup.markup_main(lang))
     
     #Если пользователь отправляет только текст
     else:
         if request == None:
-            take_new_request = bot.send_message(message.chat.id, '⚠️ Отправляемый вами тип данных не поддерживается в боте. Попробуйте еще раз отправить ваш запрос, использовав один из доступных типов данных (текст, файлы, фото, видео, аудио, голосовые сообщения)', reply_markup=markup.markup_cancel())
+            take_new_request = bot.send_message(message.chat.id, t(lang, 'unsupported_type_request'), reply_markup=markup.markup_cancel(lang))
 
             bot.clear_step_handler_by_chat_id(message.chat.id)
             bot.register_next_step_handler(take_new_request, get_new_request)
 
-        elif request.lower() == 'отмена':
-            bot.send_message(message.chat.id, 'Отменено.', reply_markup=markup.markup_main())
+        elif request.lower() == t(lang, 'cancel_btn').lower():
+            bot.send_message(message.chat.id, t(lang, 'cancelled'), reply_markup=markup.markup_main(lang))
             return
 
         else:
             req_id = core.new_req(user_id, request)
-            bot.send_message(message.chat.id, f'✅ Ваш запрос под ID {req_id} создан. Посмотреть текущие запросы можно нажав кнопку <b>Мои текущие запросы</b>', parse_mode='html', reply_markup=markup.markup_main())
+            bot.send_message(message.chat.id, t(lang, 'request_created', req_id=req_id), parse_mode='html', reply_markup=markup.markup_main(lang))
 
 
 def get_additional_message(message, req_id, status):
     additional_message = message.text
     check_file = core.get_file(message)
+    lang = core.get_user_lang(message.from_user.id) or 'en'
     
     #Если пользователь отправляет файл
     if check_file != None:
@@ -167,13 +180,13 @@ def get_additional_message(message, req_id, status):
         core.add_file(req_id, file_id, file_name, type)
 
     if additional_message == None:
-        take_additional_message = bot.send_message(chat_id=message.chat.id, text='⚠️ Отправляемый вами тип данных не поддерживается в боте. Попробуйте еще раз отправить ваше сообщение, использовав один из доступных типов данных (текст, файлы, фото, видео, аудио, голосовые сообщения).', reply_markup=markup.markup_cancel())
+        take_additional_message = bot.send_message(chat_id=message.chat.id, text=t(lang, 'unsupported_type_message'), reply_markup=markup.markup_cancel(lang))
 
         bot.clear_step_handler_by_chat_id(message.chat.id)
         bot.register_next_step_handler(take_additional_message, get_additional_message, req_id, status)
 
-    elif additional_message.lower() == 'отмена':
-        bot.send_message(message.chat.id, 'Отменено.', reply_markup=markup.markup_main())
+    elif additional_message.lower() == t(lang, 'cancel_btn').lower():
+        bot.send_message(message.chat.id, t(lang, 'cancelled'), reply_markup=markup.markup_main(lang))
         return
 
     else:
@@ -182,34 +195,35 @@ def get_additional_message(message, req_id, status):
 
         if check_file != None:
             if additional_message != 'None':
-                text = '✅ Ваш файл и сообщение успешно отправлены!'
+                text = t(lang, 'file_and_message_sent')
             else:
-                text = '✅ Ваш файл успешно отправлен!'
+                text = t(lang, 'file_sent')
         else:
-            text = '✅ Ваше сообщение успешно отправлено!'
+            text = t(lang, 'message_sent')
         
-        bot.send_message(message.chat.id, text, reply_markup=markup.markup_main())
+        bot.send_message(message.chat.id, text, reply_markup=markup.markup_main(lang))
 
         if status == 'agent':
             user_id = core.get_user_id_of_req(req_id)
+            user_lang = core.get_user_lang(user_id) or 'en'
             try:
                 if additional_message == 'None':
                     additional_message = ''
 
-                bot.send_message(user_id, f'⚠️ Получен новый ответ на ваш запрос ID {req_id}!\n\n🧑‍💻 Ответ агента поддержки:\n{additional_message}', reply_markup=markup.markup_main())
+                bot.send_message(user_id, t(user_lang, 'new_answer', req_id=req_id, text=additional_message), reply_markup=markup.markup_main(user_lang))
 
                 if type == 'photo':
-                    bot.send_photo(user_id, photo=file_id, reply_markup=markup.markup_main())
+                    bot.send_photo(user_id, photo=file_id, reply_markup=markup.markup_main(user_lang))
                 elif type == 'document':
-                    bot.send_document(user_id, data=file_id, reply_markup=markup.markup_main())
+                    bot.send_document(user_id, data=file_id, reply_markup=markup.markup_main(user_lang))
                 elif type == 'video':
-                    bot.send_video(user_id, data=file_id, reply_markup=markup.markup_main())
+                    bot.send_video(user_id, data=file_id, reply_markup=markup.markup_main(user_lang))
                 elif type == 'audio':
-                    bot.send_audio(user_id, audio=file_id, reply_markup=markup.markup_main())
+                    bot.send_audio(user_id, audio=file_id, reply_markup=markup.markup_main(user_lang))
                 elif type == 'voice':
-                    bot.send_voice(user_id, voice=file_id, reply_markup=markup.markup_main())
+                    bot.send_voice(user_id, voice=file_id, reply_markup=markup.markup_main(user_lang))
                 else:
-                    bot.send_message(user_id, additional_message, reply_markup=markup.markup_main())
+                    bot.send_message(user_id, additional_message, reply_markup=markup.markup_main(user_lang))
             except:
                 pass
         
@@ -217,8 +231,15 @@ def get_additional_message(message, req_id, status):
 @bot.callback_query_handler(func=lambda call: True)
 def callback_inline(call):
     user_id = call.message.chat.id
+    lang = core.get_user_lang(user_id) or 'en'
 
     if call.message:
+        if call.data.startswith('set_lang:'):
+            lang_selected = call.data.split(':')[1]
+            core.set_user_lang(user_id, lang_selected)
+            bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang_selected, 'welcome'), parse_mode='html', reply_markup=markup.markup_main(lang_selected))
+            bot.answer_callback_query(call.id)
+            return
         if ('my_reqs:' in call.data) or ('waiting_reqs:' in call.data) or ('answered_reqs:' in call.data) or ('confirm_reqs:' in call.data):
             """
             Обработчик кнопок для:
@@ -232,19 +253,19 @@ def callback_inline(call):
             parts = call.data.split(':')
             callback = parts[0]
             number = parts[1]
-            markup_and_value = markup.markup_reqs(user_id, callback, number)
+            markup_and_value = markup.markup_reqs(user_id, callback, number, lang)
             markup_req = markup_and_value[0]
             value = markup_and_value[1]
 
             if value == 0:
-                bot.send_message(chat_id=call.message.chat.id, text='⚠️ Запросы не обнаружены.', reply_markup=markup.markup_main())
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'requests_not_found'), reply_markup=markup.markup_main(lang))
                 bot.answer_callback_query(call.id)
                 return
 
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Нажмите на запрос, чтобы посмотреть историю переписки, либо добавить сообщение:', reply_markup=markup_req)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'press_request'), reply_markup=markup_req)
             except:
-                bot.send_message(chat_id=call.message.chat.id, text='Ваши запросы:', reply_markup=markup_req)
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'your_requests'), reply_markup=markup_req)
 
             bot.answer_callback_query(call.id)
 
@@ -255,13 +276,13 @@ def callback_inline(call):
             callback = parts[2]
 
             req_status = core.get_req_status(req_id)
-            request_data = core.get_request_data(req_id, callback)
+            request_data = core.get_request_data(req_id, callback, lang)
             len_req_data = len(request_data)
 
             i = 1
             for data in request_data:
                 if i == len_req_data:
-                    markup_req = markup.markup_request_action(req_id, req_status, callback)
+                    markup_req = markup.markup_request_action(req_id, req_status, callback, lang)
                 else:
                     markup_req = None
 
@@ -277,7 +298,7 @@ def callback_inline(call):
             req_id = parts[1]
             status_user = parts[2]
 
-            take_additional_message = bot.send_message(chat_id=call.message.chat.id, text='Отправьте ваше сообщение, использовав один из доступных типов данных (текст, файлы, фото, видео, аудио, голосовые сообщения)', reply_markup=markup.markup_cancel())
+            take_additional_message = bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'unsupported_type_message'), reply_markup=markup.markup_cancel(lang))
 
             bot.register_next_step_handler(take_additional_message, get_additional_message, req_id, status_user)
 
@@ -290,23 +311,23 @@ def callback_inline(call):
             req_id = parts[2]
 
             if core.get_req_status(req_id) == 'confirm':
-                bot.send_message(chat_id=call.message.chat.id, text="⚠️ Этот запрос уже завершен.", reply_markup=markup.markup_main())
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'request_already_finished'), reply_markup=markup.markup_main(lang))
                 bot.answer_callback_query(call.id)
 
                 return
             
             #Запросить подтверждение завершения
             if confirm_status == 'wait':
-                bot.send_message(chat_id=call.message.chat.id, text="Для завершения запроса - нажмите кнопку <b>Подтвердить</b>", parse_mode='html', reply_markup=markup.markup_confirm_req(req_id))
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'confirm_finish'), parse_mode='html', reply_markup=markup.markup_confirm_req(req_id, lang))
             
             #Подтвердить завершение
             elif confirm_status == 'true':
                 core.confirm_req(req_id)
                 
                 try:
-                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text="✅ Запрос успешно завершён.", reply_markup=markup.markup_main())
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'request_finished'), reply_markup=markup.markup_main(lang))
                 except:
-                    bot.send_message(chat_id=call.message.chat.id, text="✅ Запрос успешно завершён.", reply_markup=markup.markup_main())
+                    bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'request_finished'), reply_markup=markup.markup_main(lang))
 
                 bot.answer_callback_query(call.id)
 
@@ -317,19 +338,19 @@ def callback_inline(call):
             callback = parts[2]
             number = parts[3]
 
-            markup_and_value = markup.markup_files(number, req_id, callback)
+            markup_and_value = markup.markup_files(number, req_id, callback, lang)
             markup_files = markup_and_value[0]
             value = markup_and_value[1]
 
             if value == 0:
-                bot.send_message(chat_id=call.message.chat.id, text='⚠️ Файлы не обнаружены.', reply_markup=markup.markup_main())
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'files_not_found'), reply_markup=markup.markup_main(lang))
                 bot.answer_callback_query(call.id)
                 return
 
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Нажмите на файл, чтобы получить его.', reply_markup=markup_files)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'press_file'), reply_markup=markup_files)
             except:
-                bot.send_message(chat_id=call.message.chat.id, text='Нажмите на файл, чтобы получить его.', reply_markup=markup_files)
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'press_file'), reply_markup=markup_files)
 
             bot.answer_callback_query(call.id)
 
@@ -342,57 +363,57 @@ def callback_inline(call):
             file_id = core.get_file_id(id)
 
             if type == 'photo':
-                bot.send_photo(call.message.chat.id, photo=file_id, reply_markup=markup.markup_main())
+                bot.send_photo(call.message.chat.id, photo=file_id, reply_markup=markup.markup_main(lang))
             elif type == 'document':
-                bot.send_document(call.message.chat.id, data=file_id, reply_markup=markup.markup_main())
+                bot.send_document(call.message.chat.id, data=file_id, reply_markup=markup.markup_main(lang))
             elif type == 'video':
-                bot.send_video(call.message.chat.id, data=file_id, reply_markup=markup.markup_main())
+                bot.send_video(call.message.chat.id, data=file_id, reply_markup=markup.markup_main(lang))
             elif type == 'audio':
-                bot.send_audio(call.message.chat.id, audio=file_id, reply_markup=markup.markup_main())
+                bot.send_audio(call.message.chat.id, audio=file_id, reply_markup=markup.markup_main(lang))
             elif type == 'voice':
-                bot.send_voice(call.message.chat.id, voice=file_id, reply_markup=markup.markup_main())
+                bot.send_voice(call.message.chat.id, voice=file_id, reply_markup=markup.markup_main(lang))
             
             bot.answer_callback_query(call.id)
 
         #Вернуться назад в панель агента
         elif call.data == 'back_agent':
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='🔑 Вы авторизованы как Агент поддержки', parse_mode='html', reply_markup=markup.markup_agent())
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'already_agent'), parse_mode='html', reply_markup=markup.markup_agent(lang))
             except:
-                bot.send_message(call.message.chat.id, '🔑 Вы авторизованы как Агент поддержки', parse_mode='html', reply_markup=markup.markup_agent())
+                bot.send_message(call.message.chat.id, t(lang, 'already_agent'), parse_mode='html', reply_markup=markup.markup_agent(lang))
 
             bot.answer_callback_query(call.id)
 
         #Вернуться назад в панель админа
         elif call.data == 'back_admin':
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='🔑 Вы авторизованы как Админ', parse_mode='html', reply_markup=markup.markup_admin())
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'authorized_admin'), parse_mode='html', reply_markup=markup.markup_admin(lang))
             except:
-                bot.send_message(call.message.chat.id, '🔑 Вы авторизованы как Админ', parse_mode='html', reply_markup=markup.markup_admin())
+                bot.send_message(call.message.chat.id, t(lang, 'authorized_admin'), parse_mode='html', reply_markup=markup.markup_admin(lang))
 
             bot.answer_callback_query(call.id)
 
         #Добавить агента
         elif call.data == 'add_agent':
-            take_agent_id_message = bot.send_message(chat_id=call.message.chat.id, text='Чтобы добавить агента поддержки - введите его ID Telegram.', reply_markup=markup.markup_cancel())
+            take_agent_id_message = bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'add_agent_prompt'), reply_markup=markup.markup_cancel(lang))
             bot.register_next_step_handler(take_agent_id_message, get_agent_id_message)
 
         #Все агенты
         elif 'all_agents:' in call.data:
             number = call.data.split(':')[1]
-            markup_and_value = markup.markup_agents(number)
+            markup_and_value = markup.markup_agents(number, lang)
             markup_agents = markup_and_value[0]
             len_agents = markup_and_value[1]
 
             if len_agents == 0:
-                bot.send_message(chat_id=call.message.chat.id, text='⚠️ Агенты не обнаружены.', reply_markup=markup.markup_main())
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'agents_not_found'), reply_markup=markup.markup_main(lang))
                 bot.answer_callback_query(call.id)
                 return
 
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Нажмите на агента поддержки, чтобы удалить его', parse_mode='html', reply_markup=markup_agents)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'press_agent_delete'), parse_mode='html', reply_markup=markup_agents)
             except:
-                bot.send_message(call.message.chat.id, 'Нажмите на агента поддержки, чтобы удалить его', parse_mode='html', reply_markup=markup_agents)
+                bot.send_message(call.message.chat.id, t(lang, 'press_agent_delete'), parse_mode='html', reply_markup=markup_agents)
 
             bot.answer_callback_query(call.id)
 
@@ -411,19 +432,19 @@ def callback_inline(call):
         #Все пароли
         elif 'all_passwords:' in call.data:
             number = call.data.split(':')[1]
-            markup_and_value = markup.markup_passwords(number)
+            markup_and_value = markup.markup_passwords(number, lang)
             markup_passwords = markup_and_value[0]
             len_passwords = markup_and_value[1]
 
             if len_passwords == 0:
-                bot.send_message(chat_id=call.message.chat.id, text='⚠️ Пароли не обнаружены.', reply_markup=markup.markup_main())
+                bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'passwords_not_found'), reply_markup=markup.markup_main(lang))
                 bot.answer_callback_query(call.id)
                 return
 
             try:
-                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='Нажмите на пароль, чтобы удалить его', parse_mode='html', reply_markup=markup_passwords)
+                bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'press_password_delete'), parse_mode='html', reply_markup=markup_passwords)
             except:
-                bot.send_message(call.message.chat.id, 'Нажмите на пароль, чтобы удалить его', parse_mode='html', reply_markup=markup_passwords)
+                bot.send_message(call.message.chat.id, t(lang, 'press_password_delete'), parse_mode='html', reply_markup=markup_passwords)
 
             bot.answer_callback_query(call.id)
 
@@ -442,7 +463,7 @@ def callback_inline(call):
         #Сгенерировать пароли
         elif call.data == 'generate_passwords':
             #10 - количество паролей, 16 - длина пароля
-            passwords = core.generate_passwords(10, 16) 
+            passwords = core.generate_passwords(10, 16)
             core.add_passwords(passwords)
 
             text_passwords = ''
@@ -451,8 +472,8 @@ def callback_inline(call):
                 text_passwords += f'{i}. {password}\n'
                 i += 1
             
-            bot.send_message(call.message.chat.id, f"✅ Сгенерировано {i-1} паролей:\n\n{text_passwords}", parse_mode='html', reply_markup=markup.markup_main())
-            bot.send_message(call.message.chat.id, 'Нажмите на пароль, чтобы удалить его', parse_mode='html', reply_markup=markup.markup_passwords('1')[0])
+            bot.send_message(call.message.chat.id, t(lang, 'generated_passwords', count=i-1, passwords=text_passwords), parse_mode='html', reply_markup=markup.markup_main(lang))
+            bot.send_message(call.message.chat.id, t(lang, 'press_password_delete'), parse_mode='html', reply_markup=markup.markup_passwords('1', lang)[0])
 
             bot.answer_callback_query(call.id)
 
@@ -463,16 +484,16 @@ def callback_inline(call):
             #Запросить подтверждение на отключение
             if status == 'wait':
                 try:
-                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=f"Вы точно хотите отключить бота?", parse_mode='html', reply_markup=markup.markup_confirm_stop())
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'sure_stop_bot'), parse_mode='html', reply_markup=markup.markup_confirm_stop(lang))
                 except:
-                    bot.send_message(call.message.chat.id, f"Вы точно хотите отключить бота?", parse_mode='html', reply_markup=markup.markup_confirm_stop())
+                    bot.send_message(call.message.chat.id, t(lang, 'sure_stop_bot'), parse_mode='html', reply_markup=markup.markup_confirm_stop(lang))
 
             #Подтверждение получено
             elif status == 'confirm':
                 try:
-                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text='✅ Бот оключен.')
+                    bot.edit_message_text(chat_id=call.message.chat.id, message_id=call.message.message_id, text=t(lang, 'bot_stopped'))
                 except:
-                    bot.send_message(chat_id=call.message.chat.id, text='✅ Бот оключен.')
+                    bot.send_message(chat_id=call.message.chat.id, text=t(lang, 'bot_stopped'))
 
                 bot.answer_callback_query(call.id)
                 bot.stop_polling()

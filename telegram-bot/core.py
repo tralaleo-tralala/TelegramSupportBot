@@ -2,6 +2,26 @@ import config
 import datetime
 import random
 import pymysql
+from locales import t
+
+
+def get_user_lang(user_id):
+    con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
+    cur = con.cursor()
+    cur.execute("SELECT lang FROM users WHERE user_id=%s", (user_id,))
+    row = cur.fetchone()
+    cur.close()
+    con.close()
+    return row[0] if row else None
+
+
+def set_user_lang(user_id, lang):
+    con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
+    cur = con.cursor()
+    cur.execute("INSERT INTO users (user_id, lang) VALUES (%s, %s) ON DUPLICATE KEY UPDATE lang=%s", (user_id, lang, lang))
+    con.commit()
+    cur.close()
+    con.close()
 
 
 #Добавить агента
@@ -176,17 +196,18 @@ def get_icon_from_status(req_status, user_status):
 
 
 #Получить текст для кнопки с файлом
-def get_file_text(file_name, type):
+def get_file_text(file_name, type, lang='en'):
     if type == 'photo':
-        return f'📷 | Фото {file_name}'
+        text = '📷 | Photo {name}' if lang == 'en' else '📷 | Фото {name}'
     elif type == 'document':
-        return f'📄 | Документ {file_name}'
+        text = '📄 | Document {name}' if lang == 'en' else '📄 | Документ {name}'
     elif type == 'video':
-        return f'🎥 | Видео {file_name}'
+        text = '🎥 | Video {name}' if lang == 'en' else '🎥 | Видео {name}'
     elif type == 'audio':
-        return f'🎵 | Аудио {file_name}'
-    elif type == 'voice':
-        return f'🎧 | Голосовое сообщение {file_name}'
+        text = '🎵 | Audio {name}' if lang == 'en' else '🎵 | Аудио {name}'
+    else:
+        text = '🎧 | Voice message {name}' if lang == 'en' else '🎧 | Голосовое сообщение {name}'
+    return text.format(name=file_name)
             
 
 #Сгенерировать пароли
@@ -364,7 +385,7 @@ def get_files(number, req_id):
 
 
 #Получить историю запроса
-def get_request_data(req_id, callback):
+def get_request_data(req_id, callback, lang='en'):
     if 'my_reqs' in callback:
         get_dialog_user_status = 'user'
     else:
@@ -390,11 +411,11 @@ def get_request_data(req_id, callback):
 
         if user_status == 'user':
             if get_dialog_user_status == 'user':
-                text_status = '👤 Ваше сообщение'
+                text_status = t(lang, 'your_message') or '👤 Your message'
             else:
-                text_status = '👤 Сообщение пользователя'
+                text_status = t(lang, 'user_message') or '👤 User message'
         elif user_status == 'agent':
-            text_status = '🧑‍💻 Агент поддержки'
+            text_status = t(lang, 'agent_message') or '🧑‍💻 Support agent'
 
         #Бэкап для текста
         backup_text = text

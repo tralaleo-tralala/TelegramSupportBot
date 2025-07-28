@@ -57,9 +57,22 @@ def create_table_messages():
     con.close()
 
 
+def create_table_users():
+    con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
+    cur = con.cursor()
+
+    cur.execute("CREATE TABLE IF NOT EXISTS users(id INT NOT NULL AUTO_INCREMENT, `user_id` VARCHAR(20), `lang` VARCHAR(5), PRIMARY KEY (id))")
+    cur.execute(f"ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4")
+
+    cur.close()
+    con.close()
+
+
 
 create_table_agents()
 create_table_passwords()
 create_table_files()
 create_table_requests()
 create_table_messages()
+create_table_users()
+
