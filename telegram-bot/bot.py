@@ -1,5 +1,6 @@
 import config
 import core
+from core import sanitize_text
 import telebot
 import random
 import datetime
@@ -281,6 +282,7 @@ def callback_inline(call):
 
             i = 1
             for data in request_data:
+                data = sanitize_text(data)
                 if i == len_req_data:
                     markup_req = markup.markup_request_action(req_id, req_status, callback, lang)
                 else:
