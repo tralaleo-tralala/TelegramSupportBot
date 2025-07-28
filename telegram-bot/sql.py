@@ -61,7 +61,7 @@ def create_table_users():
     con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
     cur = con.cursor()
 
-    cur.execute("CREATE TABLE IF NOT EXISTS users(id INT NOT NULL AUTO_INCREMENT, `user_id` VARCHAR(20), `lang` VARCHAR(5), PRIMARY KEY (id))")
+    cur.execute("CREATE TABLE IF NOT EXISTS users(id INT NOT NULL AUTO_INCREMENT, `user_id` VARCHAR(20) UNIQUE, `lang` VARCHAR(5), PRIMARY KEY (id))")
     cur.execute(f"ALTER TABLE users CONVERT TO CHARACTER SET utf8mb4")
 
     cur.close()
