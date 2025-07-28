@@ -5,6 +5,13 @@ import pymysql
 from locales import t
 
 
+def sanitize_text(text):
+    """Remove surrogate characters that Telegram cannot handle."""
+    if text is None:
+        return ''
+    return ''.join(ch for ch in text if not (0xD800 <= ord(ch) <= 0xDFFF))
+
+
 def get_user_lang(user_id):
     con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
     cur = con.cursor()
@@ -54,7 +61,7 @@ def new_req(user_id, request):
     cur = con.cursor()
 
     #Добавить запрос в БД
-    cur.execute(f"INSERT INTO requests (`user_id`, `req_status`) VALUES ('{user_id}', 'waiting')") 
+    cur.execute(f"INSERT INTO requests (`user_id`, `req_status`) VALUES ('{user_id}', 'waiting')")
 
     #Получить айди добавленного запроса
     req_id = cur.lastrowid
@@ -63,7 +70,10 @@ def new_req(user_id, request):
     date_now = dt.strftime('%d.%m.%Y %H:%M:%S')
 
     #Добавить сообщение для запроса
-    cur.execute(f"INSERT INTO messages (`req_id`, `message`, `user_status`, `date`) VALUES ('{req_id}', '{request}', 'user', '{date_now}')")
+    clean_request = sanitize_text(request)
+    cur.execute(
+        f"INSERT INTO messages (`req_id`, `message`, `user_status`, `date`) VALUES ('{req_id}', '{clean_request}', 'user', '{date_now}')"
+    )
 
     con.commit()
 
@@ -86,8 +96,10 @@ def add_message(req_id, message, user_status):
     con = pymysql.connect(host=config.MySQL[0], user=config.MySQL[1], passwd=config.MySQL[2], db=config.MySQL[3])
     cur = con.cursor()
 
-    #Добавить сообщение для запроса
-    cur.execute(f"INSERT INTO messages (`req_id`, `message`, `user_status`, `date`) VALUES ('{req_id}', '{message}', '{user_status}', '{date_now}')")
+    clean_message = sanitize_text(message)
+    cur.execute(
+        f"INSERT INTO messages (`req_id`, `message`, `user_status`, `date`) VALUES ('{req_id}', '{clean_message}', '{user_status}', '{date_now}')"
+    )
     
     #Изменить статус запроса
     cur.execute(f"UPDATE requests SET `req_status` = '{req_status}' WHERE `req_id` = '{req_id}'")
@@ -405,9 +417,9 @@ def get_request_data(req_id, callback, lang='en'):
     i = 1
 
     for message in messages:
-        message_value = message[0]
+        message_value = sanitize_text(message[0])
         user_status = message[1]
-        date = message[2] 
+        date = message[2]
 
         if user_status == 'user':
             if get_dialog_user_status == 'user':

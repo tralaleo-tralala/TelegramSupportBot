@@ -1,5 +1,6 @@
 import config
 import core
+from core import sanitize_text
 import telebot
 import random
 import datetime
@@ -273,7 +274,7 @@ def callback_inline(call):
         elif 'open_req:' in call.data:
             parts = call.data.split(':')
             req_id = parts[1]
-            callback = parts[2]
+            callback = ':'.join(parts[2:])
 
             req_status = core.get_req_status(req_id)
             request_data = core.get_request_data(req_id, callback, lang)
@@ -281,6 +282,7 @@ def callback_inline(call):
 
             i = 1
             for data in request_data:
+                data = sanitize_text(data)
                 if i == len_req_data:
                     markup_req = markup.markup_request_action(req_id, req_status, callback, lang)
                 else:
@@ -335,8 +337,8 @@ def callback_inline(call):
         elif 'req_files:' in call.data:
             parts = call.data.split(':')
             req_id = parts[1]
-            callback = parts[2]
-            number = parts[3]
+            callback = ':'.join(parts[2:-1])
+            number = parts[-1]
 
             markup_and_value = markup.markup_files(number, req_id, callback, lang)
             markup_files = markup_and_value[0]
