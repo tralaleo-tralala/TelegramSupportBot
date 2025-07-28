@@ -44,8 +44,10 @@ def markup_main(lang='en'):
     markup_main = types.ReplyKeyboardMarkup(resize_keyboard=True)
     item1 = types.KeyboardButton(t(lang, 'write_request_btn'))
     item2 = types.KeyboardButton(t(lang, 'my_requests_btn'))
+    item3 = types.KeyboardButton(t(lang, 'change_language_btn'))
     markup_main.row(item1)
     markup_main.row(item2)
+    markup_main.row(item3)
 
     return markup_main
 

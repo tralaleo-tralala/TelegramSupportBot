@@ -23,6 +23,12 @@ def start(message):
     bot.send_message(message.chat.id, t(lang, 'welcome'), parse_mode='html', reply_markup=markup.markup_main(lang))
 
 
+@bot.message_handler(commands=['language'])
+def language_cmd(message):
+    lang = core.get_user_lang(message.from_user.id) or 'en'
+    bot.send_message(message.chat.id, t(lang, 'select_language'), reply_markup=markup.markup_lang())
+
+
 @bot.message_handler(commands=['agent'])
 def agent(message):
     user_id = message.from_user.id
@@ -69,7 +75,10 @@ def send_text(message):
             bot.send_message(message.chat.id, t(lang, 'no_requests'), reply_markup=markup.markup_main(lang))
         else:
             bot.send_message(message.chat.id, t(lang, 'your_requests'), reply_markup=markup_req)
-    
+
+    elif message.text == t(lang, 'change_language_btn'):
+        bot.send_message(message.chat.id, t(lang, 'select_language'), reply_markup=markup.markup_lang())
+
     else:
         bot.send_message(message.chat.id, t(lang, 'main_menu_returned'), parse_mode='html', reply_markup=markup.markup_main(lang))
 
